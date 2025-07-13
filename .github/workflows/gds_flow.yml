@@ -11,27 +11,36 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Pull OpenLane Docker
-      run: docker pull efabless/openlane:latest
-
-    - name: Run OpenLane flow
+    - name: Set up Docker
       run: |
-        mkdir -p work/designs/vedic8x8/src
-        cp vedic_multiplier.sv work/designs/vedic8x8/src/
-        cat > work/designs/vedic8x8/config.tcl <<EOF
+        sudo apt-get update
+        sudo apt-get install -y docker.io
+
+    - name: Pull OpenLane Docker
+      run: docker pull efabless/openlane:2024.04.17_01.09.28
+
+    - name: Run OpenLane
+      run: |
+        mkdir -p designs/vedic8x8/src
+        cp vedic_multiplier.sv designs/vedic8x8/src/
+
+        # Create config.tcl
+        cat > designs/vedic8x8/config.tcl <<EOF
         set ::env(DESIGN_NAME) vedic8x8
         set ::env(VERILOG_FILES) "src/vedic_multiplier.sv"
-        set ::env(CLOCK_PORT) "clk" ;# Edit if design is combinational
-        set ::env(CLOCK_PERIOD) "10.0"
+        # set ::env(CLOCK_PORT) "clk"
+        # set ::env(CLOCK_PERIOD) "10.0"
         EOF
 
-        docker run --rm -v ${{ github.workspace }}/work/designs:/openlane/designs \
-          -v ${{ github.workspace }}/work/pdks:/openlane/pdks \
+        docker run --rm \
+          -v ${{ github.workspace }}/designs:/openlane/designs \
+          -e PDK_ROOT=/openlane/pdks \
           -e PDK=sky130A \
-          efabless/openlane:latest flow.tcl -design vedic8x8
+          efabless/openlane:2024.04.17_01.09.28 \
+          bash -c "./flow.tcl -design vedic8x8 -init"
 
     - name: Upload GDS
       uses: actions/upload-artifact@v4
       with:
         name: vedic8x8_gds
-        path: work/designs/vedic8x8/runs/**/results/final/gds/*.gds
+        path: designs/vedic8x8/runs/**/results/final/gds/*.gds
