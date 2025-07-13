@@ -1,0 +1,37 @@
+name: Generate GDS from Verilog
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v4
+
+    - name: Pull OpenLane Docker
+      run: docker pull efabless/openlane:latest
+
+    - name: Run OpenLane flow
+      run: |
+        mkdir -p work/designs/vedic8x8/src
+        cp vedic_multiplier.sv work/designs/vedic8x8/src/
+        cat > work/designs/vedic8x8/config.tcl <<EOF
+        set ::env(DESIGN_NAME) vedic8x8
+        set ::env(VERILOG_FILES) "src/vedic_multiplier.sv"
+        set ::env(CLOCK_PORT) "clk" ;# Edit if design is combinational
+        set ::env(CLOCK_PERIOD) "10.0"
+        EOF
+
+        docker run --rm -v ${{ github.workspace }}/work/designs:/openlane/designs \
+          -v ${{ github.workspace }}/work/pdks:/openlane/pdks \
+          -e PDK=sky130A \
+          efabless/openlane:latest flow.tcl -design vedic8x8
+
+    - name: Upload GDS
+      uses: actions/upload-artifact@v4
+      with:
+        name: vedic8x8_gds
+        path: work/designs/vedic8x8/runs/**/results/final/gds/*.gds
